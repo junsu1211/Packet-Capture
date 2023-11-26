@@ -11,4 +11,6 @@
 #include <arpa/inet.h>        //network 정보 변환
 #include <pthread.h>          //thread
 
-#include 
+int main(){
+    
+}
