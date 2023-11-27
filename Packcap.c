@@ -11,6 +11,7 @@
 #include <arpa/inet.h>        //network 정보 변환
 #include <pthread.h>          //thread
 #include <unistd.h>
+#include <sys/stat.h>
 
 #define PACKET_SIZE 65536
 
@@ -33,9 +34,9 @@ int main() {
         return 1;
     }
 
-    char dirname[100];
-    //printf("저장할 디렉토리 이름을 설정 : ");
-    //scanf("%s",dirname);
+    
+    pathset(); // 디렉토리의 경로 및 이름 설정 함수
+
     printf("패킷 수집을 시작합니다.\n");
     //printf("%s 디렉토리에 수집된 패킷을 저장합니다.\n",dirname);
 
@@ -49,6 +50,8 @@ int main() {
         }
         // 패킷 필터링 함수 호출
         filtering_packet(buffer, data_size);
+        sleep(10);
+        exit;
     }
 
     // 소켓과 버퍼 메모리 해제
@@ -95,5 +98,27 @@ void filtering_packet(unsigned char* buffer, int size){
     }
     else if(iph->protocol == 1){//ICMP인 경우
         printf("icmp 프로토콜 입니다\n");
+    }
+}
+
+void pathset(){ // 디렉토리 경로 및 이름 지정후 생성 함수
+    char path[256];
+    char dirname[100];
+    
+    printf("디렉토리의 이름을 입력하세요 : ");
+    scanf("%s", dirname);
+
+    printf("디렉토리를 생성할 경로를 입력하세요 : ");
+    scanf("%s", path);
+
+    char fullpath[512];
+    snprintf(fullpath, sizeof(fullpath), "%s/%s", path, dirname);
+
+    if(mkdir(fullpath, 0777) == 0 ){
+        printf("디렉토리 생성 성공!");
+    }
+    else{
+        printf("디렉토리 생성 실패");
+        perror("Error");
     }
 }
