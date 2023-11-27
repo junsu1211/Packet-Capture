@@ -17,7 +17,7 @@
 
 // 수집된 패킷 필터링
 void filtering_packet(unsigned char* buffer, int size);
-
+void pathset();
 int main() {
     int raw_socket;
     struct sockaddr_in saddr;

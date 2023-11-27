@@ -1,3 +1,11 @@
 {
     "C_Cpp.errorSquiggles": "disabled"
+    "files.autoGuessEncoding": true,
+    "files.autoGuessEncoding": {"detectLanguage": true},
+    "editor.detectIndentation": false,
+    "editor.tabSize": 2,
+    "files.associations": {
+        "*.txt": "plaintext"
+    },
+    "locale": "ko"  // 이 부분을 원하는 언어로 설정
 }
