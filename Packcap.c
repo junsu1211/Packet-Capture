@@ -153,7 +153,7 @@ void pathset(){ // 디렉토리 경로 및 이름 지정후 생성 함수
 
 }
 
-void printHTTPInfo(const unsigned char *buffer, int size) {
+void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아직안됨
     // HTTP 헤더 검출을 위한 간단한 체크
     const char *httpCheck = "HTTP";
     if (strstr((const char *)buffer, httpCheck) != NULL) {
