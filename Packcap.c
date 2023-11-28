@@ -29,7 +29,20 @@ char ssh[200];
 char dns[200];
 char icmp[200];
 
+int menuset(){
+  int index=0;
+   printf("패킷 수집 프로그램을 실행합니다......\n\n");
+    printf("--------------메인메뉴--------------\n\n");
+    printf("1. 패킷 수집 시작\n");
+    printf("2. 패킷 수집 종료\n");
+    printf("3. 수집한 패킷이 저장된 경로들 확인하기\n");// 
+    printf("4. 프로그램 종료\n\n");
+    printf("------------------------------------\n\n");
+    printf(">> 숫자를 입력하세요 : ");
 
+    scanf("%d",&index); // ******예외처리 할것
+    return index;
+}
 void getCurrentTime(char *timeStr) {
     time_t t;
     struct tm *tm_info;
@@ -47,7 +60,7 @@ int main() {
     unsigned char *buffer = (unsigned char *)malloc(PACKET_SIZE);
 
     int mainchoice;
-
+    int index=0;
     // Raw socket 생성 ETH_P_ALL 설정으로 모든 종류의 패킷 수집
     raw_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 
@@ -56,13 +69,12 @@ int main() {
         return 1;
     }
 
-    
-    pathset(); // 디렉토리의 경로 및 이름 설정 함수
-
-    printf("패킷 수집을 시작합니다.\n");
-    //printf("%s 디렉토리에 수집된 패킷을 저장합니다.\n",dirname);
-    int count=0;
-    while (1) {
+    //메인메뉴--------------------------------------------------------
+    index = menuset();
+    if(index == 1 ){
+      printf("패킷 수집을 시작합니다.\n");
+      pathset(); // 디렉토리의 경로 및 이름 설정 함수 ( 여기서 반환된 저장경로를 배열로 저장하여 3번기능 구현하기)
+      while (1) { // 패킷 수신 시작
 
         // 패킷 수신
         int data_size = recvfrom(raw_socket, buffer, PACKET_SIZE, 0, (struct sockaddr *)&saddr, &saddr_size);
@@ -72,10 +84,13 @@ int main() {
         }
         // 패킷 필터링 함수 호출
         filtering_packet(buffer, data_size);
-        count++;
-        if(count > 500)
-          break;
+        }
     }
+    else if(index == 2){
+
+    }
+
+    //메뉴 끝-------------------------------------------------------------
 
     // 소켓과 버퍼 메모리 해제
     close(raw_socket);
