@@ -43,6 +43,7 @@ int menuset(){
     scanf("%d",&index); // ******예외처리 할것
     return index;
 }
+
 void getCurrentTime(char *timeStr) {
     time_t t;
     struct tm *tm_info;
@@ -68,7 +69,7 @@ int main() {
         perror("Socket 생성에 실패했습니다.");
         return 1;
     }
-
+    
     //메인메뉴--------------------------------------------------------
     index = menuset();
     if(index == 1 ){
