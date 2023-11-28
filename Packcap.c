@@ -73,7 +73,7 @@ int main() {
         // 패킷 필터링 함수 호출
         filtering_packet(buffer, data_size);
         count++;
-        if(count > 100)
+        if(count > 500)
           break;
     }
 
@@ -91,22 +91,14 @@ void filtering_packet(unsigned char* buffer, int size){
     // IP 헤더 길이 계산
     unsigned short iphdrlen = iph->ihl * 4;
 
-    // 데이터 시작 위치 계산
-    //unsigned char *data = buffer + iphdrlen + tcph->doff * 4;
-
-    // 송신지 및 수신지 IP 주소를 문자열로 변환
-    //char source_ip[INET_ADDRSTRLEN];
-    //har dest_ip[INET_ADDRSTRLEN];
-    //inet_ntop(AF_INET, &(iph->saddr), source_ip, INET_ADDRSTRLEN);
-    //inet_ntop(AF_INET, &(iph->daddr), dest_ip, INET_ADDRSTRLEN);
-
     if(iph->protocol == 6){//TCP인 경우
         // TCP 헤더 구조체
         struct tcphdr *tcph = (struct tcphdr*)(buffer + iphdrlen + sizeof(struct ethhdr));
         if((ntohs(tcph->dest) == 80 || ntohs(tcph->source) == 80) && (ntohs(tcph->dest) != 443 && ntohs(tcph->source) != 443)){
             printf("http 프로토콜 입니다\n");
-            printHTTPInfo(buffer, size);
+            printHTTPInfo(buffer,size);
         }
+        
         else if(ntohs(tcph->dest)==22||ntohs(tcph->source)==22){
             printf("ssh 프로토콜 입니다\n");
         }
@@ -154,47 +146,48 @@ void pathset(){ // 디렉토리 경로 및 이름 지정후 생성 함수
 }
 
 void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아직안됨
-    // HTTP 헤더 검출을 위한 간단한 체크
-    const char *httpCheck = "HTTP";
-    if (strstr((const char *)buffer, httpCheck) != NULL) {
-        // 현재 날짜 및 시간 정보를 얻어옴
+
+    unsigned short iphdrlen;
+
+    struct iphdr *iph = (struct iphdr *) (buffer + sizeof(struct ethhdr));
+    iphdrlen = iph->ihl * 4;
+
+    struct tcphdr *tcph = (struct tcphdr *) (buffer + iphdrlen + sizeof(struct ethhdr));
+
+    int header_size =  sizeof(struct ethhdr) + iphdrlen + tcph->doff * 4;
+
         char timeStr[20];
         getCurrentTime(timeStr);
-
         // 파일명 구성
         char fileName[300];
-        snprintf(fileName, sizeof(fileName), "%s/%s_%s%s", fullpath, "http", "http_packet", timeStr);
+        snprintf(fileName, sizeof(fileName), "%s/%s%d", http, "http_packet",counting);
 
         // 파일 열기
-        FILE *file = fopen(fileName, "a");
-        if (file == NULL) {
+        FILE *logfile = fopen(fileName, "a");
+        if (logfile == NULL) {
             perror("파일 열기에 실패했습니다.");
             return;
         }
+        else{
+      fprintf(logfile, "\n\n- - - - - - - - - - - HTTP Packet - - - - - - - - - - - - \n");  
 
-        // HTTP 헤더가 시작하는 위치를 찾음
-        const char *httpHeader = strstr((const char *)buffer, "\r\n\r\n");
-        if (httpHeader != NULL) {
-            // HTTP 버전 정보 출력
-            fprintf(file, "HTTP Version: %.*s\n", 8, httpHeader);
-            
-            // 상태 코드 및 설명 출력
-            const char *statusLineEnd = strchr(httpHeader, '\r');
-            if (statusLineEnd != NULL) {
-                fprintf(file, "Status Line: %.*s\n", (int)(statusLineEnd - httpHeader), httpHeader);
-            }
-
-            // HTTP 헤더의 나머지 부분 출력
-            fprintf(file, "HTTP Headers:\n%s", httpHeader);
-
-            // HTTP 페이로드 부분 출력
-            const char *httpPayload = httpHeader + strlen(httpHeader) + 4; // "\r\n\r\n" 이후의 위치
-            fprintf(file, "HTTP Payload:\n%s", httpPayload);
-        }
-
+        fprintf(logfile, "\n");
+        fprintf(logfile, "TCP Header\n");
+        fprintf(logfile, " + Source Port          : %u\n", ntohs(tcph->source));
+        fprintf(logfile, " | Destination Port     : %u\n", ntohs(tcph->dest));
+        fprintf(logfile, " | Sequence Number      : %u\n", ntohl(tcph->seq));
+        fprintf(logfile, " | Acknowledge Number   : %u\n", ntohl(tcph->ack_seq));
+        fprintf(logfile, " | Header Length        : %d BYTES\n", (unsigned int) tcph->doff * 4);
+        fprintf(logfile, " | Acknowledgement Flag : %d\n", (unsigned int) tcph->ack);
+        fprintf(logfile, " | Finish Flag          : %d\n", (unsigned int) tcph->fin);
+        fprintf(logfile, " + Checksum             : %d\n", ntohs(tcph->check));
+        fprintf(logfile, "\n");
+        fprintf(logfile, "                        DATA dump                         ");
+        fprintf(logfile, "\n");
+        fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - -");
         // 파일 닫기
-        fclose(file);
+        fclose(logfile);
 
         printf("HTTP 패킷 정보를 파일로 저장했습니다.\n");
-    }
+        }
 }
