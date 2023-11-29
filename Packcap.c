@@ -29,6 +29,11 @@ char ssh[200];
 char dns[200];
 char icmp[200];
 
+int http_count = 0;
+int ssh_count = 0;
+int dns_count = 0;
+int icmp_count = 0;
+
 volatile int  stopPacketCapture = 0; // 패킷 수집 쓰레드 종료 여부 검사 플래그
 
 int menuset(){
@@ -78,10 +83,6 @@ void *packetCaptureThread(void *arg) { // 패킷 수집 루프를 실행하는 �
     return NULL;
 }
 
-
-
-
-
 void getCurrentTime(char *timeStr) {
     time_t t;
     struct tm *tm_info;
@@ -91,10 +92,6 @@ void getCurrentTime(char *timeStr) {
 
     strftime(timeStr, 20, "%Y%m%d%H%M%S", tm_info);
 }// 현재 시간을 반환하는 함수
-
-
-
-
 
 int main() { // 메인 쓰레드
   pathset();
@@ -207,11 +204,21 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
     int header_size =  sizeof(struct ethhdr) + iphdrlen + tcph->doff * 4;
 
+    // source, dest ip 가져오기
+    char dest_ipaddress[100];
+    inet_ntop(AF_INET,&(iph->daddr),dest_ipaddress,INET_ADDRSTRLEN);
+    char source_ipaddress[100];
+    inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
+
+    http_count += 1;
+
         char timeStr[20];
         getCurrentTime(timeStr);
         // 파일명 구성
-        char fileName[300];
-        snprintf(fileName, sizeof(fileName), "%s/%s", http, "http_packet");
+        char fileName[10000];
+
+        snprintf(fileName, sizeof(fileName), "%s/HTTP NO.%d_%s_%s", http, http_count, dest_ipaddress, source_ipaddress);
+
 
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
@@ -224,14 +231,16 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
         fprintf(logfile, "\n");
         fprintf(logfile, "TCP Header\n");
-        fprintf(logfile, " + Source Port          : %u\n", ntohs(tcph->source));
+        //fprintf(logfile, " | Source IP            : %s\n", source_ipaddress);
+        //fprintf(logfile, " | Destination IP       : %s\n", dest_ipaddress);
+        fprintf(logfile, " | Source Port          : %u\n", ntohs(tcph->source));
         fprintf(logfile, " | Destination Port     : %u\n", ntohs(tcph->dest));
         fprintf(logfile, " | Sequence Number      : %u\n", ntohl(tcph->seq));
         fprintf(logfile, " | Acknowledge Number   : %u\n", ntohl(tcph->ack_seq));
         fprintf(logfile, " | Header Length        : %d BYTES\n", (unsigned int) tcph->doff * 4);
         fprintf(logfile, " | Acknowledgement Flag : %d\n", (unsigned int) tcph->ack);
         fprintf(logfile, " | Finish Flag          : %d\n", (unsigned int) tcph->fin);
-        fprintf(logfile, " + Checksum             : %d\n", ntohs(tcph->check));
+        fprintf(logfile, " | Checksum             : %d\n", ntohs(tcph->check));
         fprintf(logfile, "\n");
         fprintf(logfile, "                        DATA dump                         ");
         fprintf(logfile, "\n");
