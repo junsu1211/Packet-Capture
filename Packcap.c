@@ -125,6 +125,13 @@ int main() { // 메인 쓰레드
             // ...
         }
         else if (mainchoice == 4){
+          int countsum = http_count + dns_count + ssh_count + icmp_count;
+          printf("패킷 수집을 종료합니다.\n");
+          printf("수집된 총 패킷 개수 : %d\n",countsum);
+          printf("수집된 HTTP 패킷 개수 : %d\n",http_count);
+          printf("수집된 DNS 패킷 개수 : %d\n",dns_count);
+          printf("수집된 SSH 패킷 개수 : %d\n",ssh_count);
+          printf("수집된 ICMP 패킷 개수 : %d\n",icmp_count);
           break;
         }
     }
@@ -204,21 +211,20 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
     int header_size =  sizeof(struct ethhdr) + iphdrlen + tcph->doff * 4;
 
-    // source, dest ip 가져오기
-    char dest_ipaddress[100];
-    inet_ntop(AF_INET,&(iph->daddr),dest_ipaddress,INET_ADDRSTRLEN);
-    char source_ipaddress[100];
-    inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
+        // source, dest ip 가져오기
+        char dest_ipaddress[100];
+        inet_ntop(AF_INET,&(iph->daddr),dest_ipaddress,INET_ADDRSTRLEN);
+        char source_ipaddress[100];
+        inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
 
-    http_count += 1;
+        http_count += 1;
 
         char timeStr[20];
         getCurrentTime(timeStr);
+
         // 파일명 구성
-        char fileName[10000];
-
+        char fileName[1000];
         snprintf(fileName, sizeof(fileName), "%s/HTTP NO.%d_%s_%s", http, http_count, dest_ipaddress, source_ipaddress);
-
 
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
@@ -231,16 +237,16 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
         fprintf(logfile, "\n");
         fprintf(logfile, "TCP Header\n");
-        //fprintf(logfile, " | Source IP            : %s\n", source_ipaddress);
-        //fprintf(logfile, " | Destination IP       : %s\n", dest_ipaddress);
-        fprintf(logfile, " | Source Port          : %u\n", ntohs(tcph->source));
+        //fprintf(logfile, " | Source IP : %s\n", source_ipaddress);
+        //fprintf(logfile, " | Destination IP : %s\n", dest_ipaddress);
+        fprintf(logfile, " + Source Port          : %u\n", ntohs(tcph->source));
         fprintf(logfile, " | Destination Port     : %u\n", ntohs(tcph->dest));
         fprintf(logfile, " | Sequence Number      : %u\n", ntohl(tcph->seq));
         fprintf(logfile, " | Acknowledge Number   : %u\n", ntohl(tcph->ack_seq));
         fprintf(logfile, " | Header Length        : %d BYTES\n", (unsigned int) tcph->doff * 4);
         fprintf(logfile, " | Acknowledgement Flag : %d\n", (unsigned int) tcph->ack);
         fprintf(logfile, " | Finish Flag          : %d\n", (unsigned int) tcph->fin);
-        fprintf(logfile, " | Checksum             : %d\n", ntohs(tcph->check));
+        fprintf(logfile, " + Checksum             : %d\n", ntohs(tcph->check));
         fprintf(logfile, "\n");
         fprintf(logfile, "                        DATA dump                         ");
         fprintf(logfile, "\n");
