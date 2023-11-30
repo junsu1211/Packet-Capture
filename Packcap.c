@@ -12,6 +12,7 @@
 #include <pthread.h>          //thread
 #include <unistd.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #define PACKET_SIZE 65536
 
@@ -50,6 +51,26 @@ int menuset(){
 
     scanf("%d",&index); // ******예외처리 할것
     return index;
+}
+
+void viewFile(const char *path, const char *filename) { // 파일 열람 함수
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "%s/%s", path, filename);
+
+    FILE *file = fopen(filepath, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("\nContent of %s:\n", filename);
+
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        printf("%s", buffer);
+    }
+
+    fclose(file);
 }
 
 void *packetCaptureThread(void *arg) { // 패킷 수집 루프를 실행하는 스레드
@@ -115,15 +136,38 @@ int main() { // 메인 쓰레드
             // 2번 메뉴 또는 4번 메뉴 선택 시 종료
             stopPacketCapture = 1; // 쓰레드 종료 플래그 설정
             printf("\n\n----------------------------------\n");
-            printf("패킷 수집 종료...\n 정리 작업중 ... \n잠시만 기다려주세요...\n\n\n");
+            printf("패킷 수집 종료...\n 정리 작업중 ... \n잠시만 기다려주세요...\n");
             printf("----------------------------------\n\n\n");
             if (pthread_join(packetCaptureThreadId, NULL) != 0) { // 쓰레드 종료 대기
                 perror("패킷 수집 스레드 종료 대기에 실패했습니다.");
                 return 1;
             }
         } else if (mainchoice == 3) {
+          char sele[20];
             // 3번 메뉴 선택 시 저장된 경로 확인
             // ...
+            printf("---------------------------------\n");
+            printf("현재 패킷이 저장된 경로 : %s\n",fullpath);
+            printf("확인할 프로토콜을 선택하세요 \n");
+            printf("---------------------------------\n\n");
+            printf(">>");
+            
+            scanf("%s",sele);
+            if(sele == "http" || sele == "HTTP"){
+                
+            }
+            else if (sele == "ssh" || sele == "SSH"){
+                
+            }
+            else if (sele == "dns" || sele =="dns"){
+
+            }
+            else if (sele == "icmp" || sele == "ICMP"){
+
+            }
+            else {
+
+            }
         }
         else if (mainchoice == 4){
           int countsum = http_count + dns_count + ssh_count + icmp_count;
