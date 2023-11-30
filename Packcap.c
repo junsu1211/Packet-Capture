@@ -42,6 +42,17 @@ int icmp_count = 0;
 int key = 1;
 volatile int  stopPacketCapture = 0; // 패킷 수집 쓰레드 종료 여부 검사 플래그
 
+int compareNames(const void *a, const void *b) {
+    const char *strA = *(const char **)a;
+    const char *strB = *(const char **)b;
+
+    // "NO." 다음의 숫자 부분을 추출하여 비교
+    int numA = atoi(strstr(strA, "NO.") + 3);
+    int numB = atoi(strstr(strB, "NO.") + 3);
+
+    return numA - numB;
+}
+
 int menuset(){
    int index=0;
    printf("메인 메뉴를 실행합니다......\n");
@@ -59,9 +70,10 @@ int menuset(){
 }
 
 void listFiles(const char *path) { // 경로 내의 파일 목록 출력 함수
-    DIR *dir;
+   DIR *dir;
     struct dirent *entry;
-    
+    int count = 0;
+
     // 디렉토리 열기
     dir = opendir(path);
     // 디렉토리 열기에 실패한 경우
@@ -69,18 +81,49 @@ void listFiles(const char *path) { // 경로 내의 파일 목록 출력 함수
         perror("디렉토리를 찾을 수 없습니다.");
         return;
     }
-    // 디렉토리 내부의 파일 출력
+
+    // 디렉토리 내부의 파일 개수 세기
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_REG) {
-            printf("%s\n", entry->d_name);
+            count++;
         }
     }
-     int countsum = http_count + dns_count + ssh_count + icmp_count;
+
+    // 다시 디렉토리를 열어서 파일 이름들을 배열에 저장
+    closedir(dir);
+    dir = opendir(path);
+
+    if (dir == NULL) {
+        perror("디렉토리를 찾을 수 없습니다.");
+        return;
+    }
+
+    char **fileNames = (char **)malloc(count * sizeof(char *));
+    int index = 0;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {
+            fileNames[index] = strdup(entry->d_name);
+            index++;
+        }
+    }
+
+    // 파일 이름들을 정렬
+    qsort(fileNames, count, sizeof(char *), compareNames);
+
+    // 정렬된 파일 이름들을 출력
+    for (int i = 0; i < count; i++) {
+        printf("%s\n", fileNames[i]);
+        free(fileNames[i]);
+    }
+
+    free(fileNames);
+    int countsum = http_count + dns_count + ssh_count + icmp_count;
      printf("--------------------------------------\n");
       printf("수집된 총 패킷 개수 : %d\n",countsum);
       printf("수집된 HTTP 패킷 개수 : %d\n",http_count);
-      printf("수집된 SSH  패킷 개수 : %d\n",dns_count);
-      printf("수집된 DNS  패킷 개수 : %d\n",ssh_count);
+      printf("수집된 SSH  패킷 개수 : %d\n",ssh_count);
+      printf("수집된 DNS  패킷 개수 : %d\n",dns_count);
       printf("수집된 ICMP 패킷 개수 : %d\n",icmp_count);
       printf("-------------------------------------\n");
     // 디렉토리 닫기
