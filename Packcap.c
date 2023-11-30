@@ -257,7 +257,7 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
     struct tcphdr *tcph = (struct tcphdr *) (buffer + iphdrlen + sizeof(struct ethhdr));
 
-    int header_size =  sizeof(struct ethhdr) + iphdrlen + tcph->doff * 4;
+    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(struct tcphdr);
 
         // source, dest ip 가져오기
     char dest_ipaddress[100];
@@ -272,7 +272,7 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
         // 파일명 구성
         char fileName[1000];
-        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", http, http_count, dest_ipaddress, source_ipaddress);
+        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", http, http_count, source_ipaddress,dest_ipaddress);
 
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
@@ -312,16 +312,17 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "\n");
           fprintf(logfile, "                        DATA dump                         \n");
           fprintf(logfile, "\n");
-          fprintf(logfile, "Ehternet Header\n\n");     
+          fprintf(logfile, "Ehternet Header\n\n");
+          LogData(buffer, 14,logfile);  
           fprintf(logfile, "\n");
           fprintf(logfile, "IP Header\n\n");  
-          //LogData(buffer, iphdrlen,logfile);      
+          LogData(buffer + 14, iphdrlen,logfile);      
           fprintf(logfile, "\n");
           fprintf(logfile, "TCP Header\n\n");
-          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
+          LogData(buffer + 14 + iphdrlen, sizeof(struct tcphdr),logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "Data Payload\n\n");
-          //LogData(buffer + header_size, size - header_size,logfile);
+          LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
           // 파일 닫기
@@ -340,7 +341,7 @@ void printSSHInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
     struct tcphdr *tcph = (struct tcphdr *) (buffer + iphdrlen + sizeof(struct ethhdr));
 
-    int header_size =  sizeof(struct ethhdr) + iphdrlen + tcph->doff * 4;
+    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(struct tcphdr);
 
         // source, dest ip 가져오기
     char dest_ipaddress[100];
@@ -355,7 +356,7 @@ void printSSHInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
         // 파일명 구성
         char fileName[1000];
-        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", ssh, ssh_count, dest_ipaddress, source_ipaddress);
+        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", ssh, ssh_count, source_ipaddress, dest_ipaddress);
 
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
@@ -396,16 +397,16 @@ void printSSHInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "                        DATA dump                         \n");
           fprintf(logfile, "\n");
           fprintf(logfile, "Ehternet Header\n\n");
-
+          LogData(buffer, 14,logfile);  
           fprintf(logfile, "\n");
           fprintf(logfile, "IP Header\n\n");  
-          //LogData(buffer, iphdrlen,logfile);      
+          LogData(buffer + 14, iphdrlen,logfile);      
           fprintf(logfile, "\n");
           fprintf(logfile, "TCP Header\n\n");
-          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
+          LogData(buffer + 14 + iphdrlen, sizeof(struct tcphdr),logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "Data Payload\n\n");
-          //LogData(buffer + header_size, size - header_size,logfile);
+          LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
           // 파일 닫기
@@ -423,7 +424,7 @@ void printDNSInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
     struct udphdr *udph = (struct udphdr *) (buffer + iphdrlen + sizeof(struct ethhdr));
 
-    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(udph);
+    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(struct udphdr);
 
         // source, dest ip 가져오기
     char dest_ipaddress[100];
@@ -438,7 +439,7 @@ void printDNSInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
         // 파일명 구성
         char fileName[1000];
-        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", dns, dns_count, dest_ipaddress, source_ipaddress);
+        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", dns, dns_count, source_ipaddress, dest_ipaddress);
 
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
@@ -475,16 +476,16 @@ void printDNSInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "                        DATA dump                         \n");
           fprintf(logfile, "\n");
           fprintf(logfile, "Ehternet Header\n\n");
-
+          LogData(buffer, 14,logfile);  
           fprintf(logfile, "\n");
           fprintf(logfile, "IP Header\n\n");  
-          //LogData(buffer, iphdrlen,logfile);      
+          LogData(buffer + 14, iphdrlen,logfile);      
           fprintf(logfile, "\n");
-          fprintf(logfile, "TCP Header\n\n");
-          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
+          fprintf(logfile, "UDP Header\n\n");
+          LogData(buffer + 14 + iphdrlen, sizeof(struct udphdr),logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "Data Payload\n\n");
-          //LogData(buffer + header_size, size - header_size,logfile);
+          LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
           // 파일 닫기
@@ -502,7 +503,7 @@ void printICMPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
     struct icmphdr *icmph = (struct icmphdr *) (buffer + iphdrlen + sizeof(struct ethhdr));
 
-    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(icmph);
+    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(struct icmphdr);
 
         // source, dest ip 가져오기
     char dest_ipaddress[100];
@@ -517,7 +518,7 @@ void printICMPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
         // 파일명 구성
         char fileName[1000];
-        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", icmp, icmp_count, dest_ipaddress, source_ipaddress);
+        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", icmp, icmp_count, source_ipaddress, dest_ipaddress);
 
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
@@ -557,16 +558,17 @@ void printICMPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "                        DATA dump                         \n");
           fprintf(logfile, "\n");
           fprintf(logfile, "Ehternet Header\n\n");
-
+          LogData(buffer, 14,logfile);  
           fprintf(logfile, "\n");
           fprintf(logfile, "IP Header\n\n");  
-          //LogData(buffer, iphdrlen,logfile);      
+          LogData(buffer + 14, iphdrlen,logfile);      
           fprintf(logfile, "\n");
           fprintf(logfile, "ICMP Header\n\n");
-          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
+          LogData(buffer + 14 + iphdrlen, sizeof(struct icmphdr),logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "Data Payload\n\n");
-          //LogData(buffer + header_size, size - header_size,logfile);
+          LogData(buffer + header_size, size - header_size,logfile);
+          fprintf(logfile, "\n");
           fprintf(logfile, "\n");
           fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
           // 파일 닫기
