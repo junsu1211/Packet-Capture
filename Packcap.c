@@ -21,6 +21,9 @@ void filtering_packet(unsigned char* buffer, int size);
 void pathset();
 void printHTTPInfo(const unsigned char* buffer,int size);
 void printSSHInfo(const unsigned char* buffer, int size);
+void printDNSInfo(const unsigned char *buffer, int size);
+void printICMPInfo(const unsigned char *buffer, int size);
+void LogData(const unsigned char *buffer, int size,FILE *logfile);
 
 char path[50];
 char dirname[50];
@@ -207,12 +210,12 @@ void filtering_packet(unsigned char* buffer, int size){
         // UDP 헤더 구조체
         struct udphdr *udph = (struct udphdr*)(buffer + iphdrlen + sizeof(struct ethhdr));
         if(ntohs(udph->dest)==53||ntohs(udph->source)==53){
-            //printf("dns 프로토콜 입니다\n");
+          printDNSInfo(buffer,size);
         }
 
     }
     else if(iph->protocol == 1){//ICMP인 경우
-        printf("icmp 프로토콜 입니다\n");
+      printICMPInfo(buffer,size);
     }
 }
 
@@ -309,20 +312,21 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "\n");
           fprintf(logfile, "                        DATA dump                         \n");
           fprintf(logfile, "\n");
-          fprintf(logfile, "Ehternet Header\n\n");
-
+          fprintf(logfile, "Ehternet Header\n\n");     
           fprintf(logfile, "\n");
-          fprintf(logfile, "IP Header\n\n");
+          fprintf(logfile, "IP Header\n\n");  
+          //LogData(buffer, iphdrlen,logfile);      
           fprintf(logfile, "\n");
           fprintf(logfile, "TCP Header\n\n");
+          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "Data Payload\n\n");
+          //LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
           // 파일 닫기
           fclose(logfile);
 
-          //printf("HTTP 패킷 정보를 파일로 저장했습니다.\n");
         }
 }
 
@@ -394,16 +398,217 @@ void printSSHInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "Ehternet Header\n\n");
 
           fprintf(logfile, "\n");
-          fprintf(logfile, "IP Header\n\n");
+          fprintf(logfile, "IP Header\n\n");  
+          //LogData(buffer, iphdrlen,logfile);      
           fprintf(logfile, "\n");
           fprintf(logfile, "TCP Header\n\n");
+          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "Data Payload\n\n");
+          //LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
           // 파일 닫기
           fclose(logfile);
-
-          //printf("HTTP 패킷 정보를 파일로 저장했습니다.\n");
         }
+}
+
+void printDNSInfo(const unsigned char *buffer, int size) { // 이부분이 아직안됨
+
+    unsigned short iphdrlen;
+    struct ethhdr *ethHeader = (struct ethhdr *)buffer;
+
+    struct iphdr *iph = (struct iphdr *) (buffer + sizeof(struct ethhdr));
+    iphdrlen = iph->ihl * 4;
+
+    struct udphdr *udph = (struct udphdr *) (buffer + iphdrlen + sizeof(struct ethhdr));
+
+    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(udph);
+
+        // source, dest ip 가져오기
+    char dest_ipaddress[100];
+    inet_ntop(AF_INET,&(iph->daddr),dest_ipaddress,INET_ADDRSTRLEN);
+    char source_ipaddress[100];
+    inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
+
+        dns_count += 1;
+
+        char timeStr[20];
+        getCurrentTime(timeStr);
+
+        // 파일명 구성
+        char fileName[1000];
+        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", dns, dns_count, dest_ipaddress, source_ipaddress);
+
+        // 파일 열기
+        FILE *logfile = fopen(fileName, "a");
+        if (logfile == NULL) {
+            perror("파일 열기에 실패했습니다.");
+            return;
+        }
+        else{
+          fprintf(logfile, "\n\n- - - - - - - - - - - DNS Packet - - - - - - - - - - - - -\n\n");
+          fprintf(logfile, "Ehternet Header\n\n");
+          fprintf(logfile, " | Destination MAC      : %02X:%02X:%02X:%02X:%02X:%02X\n",
+          ethHeader->h_dest[0],ethHeader->h_dest[1],ethHeader->h_dest[2],
+          ethHeader->h_dest[3],ethHeader->h_dest[4],ethHeader->h_dest[5]);
+          fprintf(logfile, " | Source MAC           : %02X:%02X:%02X:%02X:%02X:%02X\n",
+          ethHeader->h_source[0],ethHeader->h_source[1],ethHeader->h_source[2],
+          ethHeader->h_source[3],ethHeader->h_source[4],ethHeader->h_source[5]);
+          fprintf(logfile, " | Ethernet Type        : %04X\n\n", ntohs(ethHeader->h_proto));
+          fprintf(logfile, "IP Header\n\n");
+          fprintf(logfile, " | IP Version           : %d\n", (unsigned int)iph->version);
+	        fprintf(logfile, " | IP Header Length     : %d Bytes\n", ((unsigned int)(iph->ihl)) * 4);
+	        fprintf(logfile, " | Type Of Service      : %d\n", (unsigned int)iph->tos);
+	        fprintf(logfile, " | IP Total Length      : %d  Bytes (FULL SIZE)\n", ntohs(iph->tot_len));
+	        fprintf(logfile, " | TTL                  : %d\n", (unsigned int)iph->ttl);
+	        fprintf(logfile, " | Protocol             : %d\n", (unsigned int)iph->protocol);
+	        fprintf(logfile, " | Checksum             : %d\n", ntohs(iph->check));
+          fprintf(logfile, " | Source IP            : %s\n", source_ipaddress);
+          fprintf(logfile, " | Destination IP       : %s\n\n", dest_ipaddress);
+          fprintf(logfile, "UDP Header\n\n");
+          fprintf(logfile, " | Source Port          : %u\n", ntohs(udph->source));
+          fprintf(logfile, " | Destination Port     : %u\n", ntohs(udph->dest));
+          fprintf(logfile, " | UDP Length           : %u\n", ntohs(udph->len));
+          fprintf(logfile, " | UDP Checksum         : %u\n", ntohs(udph->check));
+          fprintf(logfile, "\n");
+          fprintf(logfile, "                        DATA dump                         \n");
+          fprintf(logfile, "\n");
+          fprintf(logfile, "Ehternet Header\n\n");
+
+          fprintf(logfile, "\n");
+          fprintf(logfile, "IP Header\n\n");  
+          //LogData(buffer, iphdrlen,logfile);      
+          fprintf(logfile, "\n");
+          fprintf(logfile, "TCP Header\n\n");
+          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
+          fprintf(logfile, "\n");
+          fprintf(logfile, "Data Payload\n\n");
+          //LogData(buffer + header_size, size - header_size,logfile);
+          fprintf(logfile, "\n");
+          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+          // 파일 닫기
+          fclose(logfile);
+        }
+}
+
+void printICMPInfo(const unsigned char *buffer, int size) { // 이부분이 아직안됨
+
+    unsigned short iphdrlen;
+    struct ethhdr *ethHeader = (struct ethhdr *)buffer;
+
+    struct iphdr *iph = (struct iphdr *) (buffer + sizeof(struct ethhdr));
+    iphdrlen = iph->ihl * 4;
+
+    struct icmphdr *icmph = (struct icmphdr *) (buffer + iphdrlen + sizeof(struct ethhdr));
+
+    int header_size =  sizeof(struct ethhdr) + iphdrlen + sizeof(icmph);
+
+        // source, dest ip 가져오기
+    char dest_ipaddress[100];
+    inet_ntop(AF_INET,&(iph->daddr),dest_ipaddress,INET_ADDRSTRLEN);
+    char source_ipaddress[100];
+    inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
+
+        icmp_count += 1;
+
+        char timeStr[20];
+        getCurrentTime(timeStr);
+
+        // 파일명 구성
+        char fileName[1000];
+        snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", icmp, icmp_count, dest_ipaddress, source_ipaddress);
+
+        // 파일 열기
+        FILE *logfile = fopen(fileName, "a");
+        if (logfile == NULL) {
+            perror("파일 열기에 실패했습니다.");
+            return;
+        }
+        else{
+          fprintf(logfile, "\n\n- - - - - - - - - - - ICMP Packet - - - - - - - - - - - - -\n\n");
+          fprintf(logfile, "Ehternet Header\n\n");
+          fprintf(logfile, " | Destination MAC      : %02X:%02X:%02X:%02X:%02X:%02X\n",
+          ethHeader->h_dest[0],ethHeader->h_dest[1],ethHeader->h_dest[2],
+          ethHeader->h_dest[3],ethHeader->h_dest[4],ethHeader->h_dest[5]);
+          fprintf(logfile, " | Source MAC           : %02X:%02X:%02X:%02X:%02X:%02X\n",
+          ethHeader->h_source[0],ethHeader->h_source[1],ethHeader->h_source[2],
+          ethHeader->h_source[3],ethHeader->h_source[4],ethHeader->h_source[5]);
+          fprintf(logfile, " | Ethernet Type        : %04X\n\n", ntohs(ethHeader->h_proto));
+          fprintf(logfile, "IP Header\n\n");
+          fprintf(logfile, " | IP Version           : %d\n", (unsigned int)iph->version);
+	        fprintf(logfile, " | IP Header Length     : %d Bytes\n", ((unsigned int)(iph->ihl)) * 4);
+	        fprintf(logfile, " | Type Of Service      : %d\n", (unsigned int)iph->tos);
+	        fprintf(logfile, " | IP Total Length      : %d  Bytes (FULL SIZE)\n", ntohs(iph->tot_len));
+	        fprintf(logfile, " | TTL                  : %d\n", (unsigned int)iph->ttl);
+	        fprintf(logfile, " | Protocol             : %d\n", (unsigned int)iph->protocol);
+	        fprintf(logfile, " | Checksum             : %d\n", ntohs(iph->check));
+          fprintf(logfile, " | Source IP            : %s\n", source_ipaddress);
+          fprintf(logfile, " | Destination IP       : %s\n\n", dest_ipaddress);
+          fprintf(logfile, "ICMP Header\n\n");
+          fprintf(logfile, " | Type                 : %d\n", icmph->type);
+          fprintf(logfile, " | Code                 : %d\n", icmph->code);
+            fprintf(logfile, " | Checksum             : 0x%04x\n", ntohs(icmph->checksum));
+          if (icmph->type == ICMP_ECHO || icmph->type == ICMP_ECHOREPLY) {
+            fprintf(logfile, " | Identifier           : %d\n", ntohs(icmph->un.echo.id));
+            fprintf(logfile, " | Sequence Number      : %d\n", ntohs(icmph->un.echo.sequence));
+          }          
+          fprintf(logfile, "\n");
+          fprintf(logfile, "                        DATA dump                         \n");
+          fprintf(logfile, "\n");
+          fprintf(logfile, "Ehternet Header\n\n");
+
+          fprintf(logfile, "\n");
+          fprintf(logfile, "IP Header\n\n");  
+          //LogData(buffer, iphdrlen,logfile);      
+          fprintf(logfile, "\n");
+          fprintf(logfile, "ICMP Header\n\n");
+          //LogData(buffer + iphdrlen, tcph->doff * 4,logfile);
+          fprintf(logfile, "\n");
+          fprintf(logfile, "Data Payload\n\n");
+          //LogData(buffer + header_size, size - header_size,logfile);
+          fprintf(logfile, "\n");
+          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+          // 파일 닫기
+          fclose(logfile);
+        }
+}
+
+void LogData(const unsigned char *buffer, int size,FILE *logfile)
+{
+    int i, j;
+    for (i = 0; i < size; i++) {  //패킷은 16비트씩 구성되있다.
+        if (i != 0 && i % 16 == 0) { // 한줄씩 찍는데 i가 16비트 배수로 떨어지면 문자니까
+
+            for (j = i - 16; j < i; j++) {
+                if (buffer[j] >= 32 && buffer[j] <= 128) {
+                    fprintf(logfile, " %c", (unsigned char) buffer[j]); // 사람 문자로 변환.
+                } else {
+                    fprintf(logfile, " *"); // 없으면 공백찍는다.
+                }
+            }
+            fprintf(logfile,"\t\n");
+        }
+
+        if (i % 16 == 0) {
+            fprintf(logfile, " ");
+        }
+        fprintf(logfile, " %02X", (unsigned int) buffer[i]);//바이트코드 찍어줌
+
+        if (i == size - 1) { //공간채워주고
+            for(j = 0; j < 15 - i % 16; j++)  {
+                fprintf(logfile, "  "); //여백
+            }
+
+            for(j = i - i % 16; j <= i; j++) { 
+                if(buffer[j] >= 32 && buffer[j] <= 128) {
+                    fprintf(logfile, " %c", (unsigned char) buffer[j]);
+                } else {
+                    fprintf(logfile, " *");
+                }
+            }
+
+            fprintf(logfile,  "\n");
+        }
+    }
 }
