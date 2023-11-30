@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
+pthread_mutex_t Mutex = PTHREAD_MUTEX_INITIALIZER;
 #define PACKET_SIZE 65536
 
 // 수집된 패킷 필터링
@@ -38,16 +39,17 @@ int http_count = 0;
 int ssh_count = 0;
 int dns_count = 0;
 int icmp_count = 0;
-
+int key = 1;
 volatile int  stopPacketCapture = 0; // 패킷 수집 쓰레드 종료 여부 검사 플래그
 
 int menuset(){
-  int index=0;
+   int index=0;
    printf("메인 메뉴를 실행합니다......\n");
+   sleep(1);
     printf("--------------메인메뉴--------------\n\n");
     printf("1. 패킷 수집 시작\n");
     printf("2. 패킷 수집 종료\n");
-    printf("3. 수집한 패킷이 저장된 경로들 확인하기\n");// 
+    printf("3. 패킷 정보 확인\n");// 
     printf("4. 프로그램 종료\n\n");
     printf("------------------------------------\n\n");
     printf(">> 숫자를 입력해주세요 : ");
@@ -56,24 +58,50 @@ int menuset(){
     return index;
 }
 
+void listFiles(const char *path) { // 경로 내의 파일 목록 출력 함수
+    DIR *dir;
+    struct dirent *entry;
+    
+    // 디렉토리 열기
+    dir = opendir(path);
+    // 디렉토리 열기에 실패한 경우
+    if (dir == NULL) {
+        perror("디렉토리를 찾을 수 없습니다.");
+        return;
+    }
+    // 디렉토리 내부의 파일 출력
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {
+            printf("%s\n", entry->d_name);
+        }
+    }
+     int countsum = http_count + dns_count + ssh_count + icmp_count;
+     printf("--------------------------------------\n");
+      printf("수집된 총 패킷 개수 : %d\n",countsum);
+      printf("수집된 HTTP 패킷 개수 : %d\n",http_count);
+      printf("수집된 SSH  패킷 개수 : %d\n",dns_count);
+      printf("수집된 DNS  패킷 개수 : %d\n",ssh_count);
+      printf("수집된 ICMP 패킷 개수 : %d\n",icmp_count);
+      printf("-------------------------------------\n");
+    // 디렉토리 닫기
+    closedir(dir);
+}
+
 void viewFile(const char *path, const char *filename) { // 파일 열람 함수
     char filepath[256];
-    snprintf(filepath, sizeof(filepath), "%s/%s", path, filename);
-
+    snprintf(filepath, sizeof(filepath), "%s/%s", path, filename);  
     FILE *file = fopen(filepath, "r");
     if (file == NULL) {
-        perror("Error opening file");
-        exit(EXIT_FAILURE);
+      perror("존재하지 않는 파일입니다...\n");
+      return;
     }
-
     printf("\nContent of %s:\n", filename);
-
     char buffer[256];
     while (fgets(buffer, sizeof(buffer), file) != NULL) {
-        printf("%s", buffer);
+      printf("%s", buffer);
     }
-
     fclose(file);
+    return;
 }
 
 void *packetCaptureThread(void *arg) { // 패킷 수집 루프를 실행하는 스레드
@@ -98,7 +126,9 @@ void *packetCaptureThread(void *arg) { // 패킷 수집 루프를 실행하는 �
             return NULL;
         }
         // 패킷 필터링 함수 호출
+        pthread_mutex_lock(&Mutex); // 뮤텍스 획득
         filtering_packet(buffer, data_size);
+        pthread_mutex_unlock(&Mutex); // 뮤텍스 해제
     }
     // 소켓과 버퍼 메모리 해제
     close(raw_socket);
@@ -108,25 +138,16 @@ void *packetCaptureThread(void *arg) { // 패킷 수집 루프를 실행하는 �
     return NULL;
 }
 
-void getCurrentTime(char *timeStr) {
-    time_t t;
-    struct tm *tm_info;
-
-    time(&t);
-    tm_info = localtime(&t);
-
-    strftime(timeStr, 20, "%Y%m%d%H%M%S", tm_info);
-}// 현재 시간을 반환하는 함수
-
 int main() { // 메인 쓰레드
   pathset();
   pthread_t packetCaptureThreadId; // 패킷 캡쳐 쓰레드 생성
-    
+  char viewF[50];  // 파일 이름 입력 배열
     // 메인 메뉴 루프
     while (1) {
         // 메뉴 표시 및 선택
         int mainchoice = menuset();
         if (mainchoice == 1){ // 패킷 수집 쓰레드
+          //stopPacketCapture = 0; // 쓰레드 종료 플래그의 부정
           printf("\n\n----------------------\n");
           printf(" 패킷 수집을 시작합니다! \n");
           printf("----------------------\n\n\n");
@@ -142,44 +163,63 @@ int main() { // 메인 쓰레드
             printf("패킷 수집 종료...\n 정리 작업중 ... \n잠시만 기다려주세요...\n");
             printf("----------------------------------\n\n\n");
             if (pthread_join(packetCaptureThreadId, NULL) != 0) { // 쓰레드 종료 대기
-                perror("패킷 수집 스레드 종료 대기에 실패했습니다.");
+                printf("패킷 수집 스레드 종료 대기에 실패했습니다.");
                 return 1;
             }
+            stopPacketCapture = 0; // 다시 쓰레드 종료 플래그
         } else if (mainchoice == 3) {
-          char sele[20];
+          int sele=0;
             // 3번 메뉴 선택 시 저장된 경로 확인
             // ...
-            printf("---------------------------------\n");
             printf("현재 패킷이 저장된 경로 : %s\n",fullpath);
-            printf("확인할 프로토콜을 선택하세요 \n");
+            printf("확인할 프로토콜의 번호를 선택하세요 \n");
+            printf("---------------------------------\n");
+            printf("1. http\n2. ssh\n3. dns\n4. icmp\n");
             printf("---------------------------------\n\n");
             printf(">>");
             
-            scanf("%s",sele);
-            if(sele == "http" || sele == "HTTP"){
-                
+            scanf("%d",&sele); // 내부 프로토콜들 입력
+            if(sele == 1){
+              pthread_mutex_lock(&Mutex);
+              listFiles(http); // 파일 출력
+              printf("\n\n열람할 파일명을 입력하세요\n");
+              printf(">>");
+              scanf("%s", viewF);
+              viewFile(http,viewF);     
+              pthread_mutex_unlock(&Mutex);     
             }
-            else if (sele == "ssh" || sele == "SSH"){
-                
+            else if(sele == 2){
+              pthread_mutex_lock(&Mutex);
+              listFiles(ssh); // 파일 출력
+              printf("\n\n열람할 파일명을 입력하세요\n");
+              printf(">>");
+              scanf("%s", viewF);
+              viewFile(ssh,viewF); 
+               pthread_mutex_unlock(&Mutex);
             }
-            else if (sele == "dns" || sele =="dns"){
-
+            else if(sele == 3){
+              pthread_mutex_lock(&Mutex);
+              listFiles(dns); // 파일 출력
+               printf("\n\n열람할 파일명을 입력하세요\n");
+              printf(">>");
+              scanf("%s", viewF);
+              viewFile(dns,viewF); 
+             pthread_mutex_unlock(&Mutex);
             }
-            else if (sele == "icmp" || sele == "ICMP"){
-
+            else if(sele == 4){
+             pthread_mutex_lock(&Mutex);
+              listFiles(icmp); // 파일 출력
+               printf("\n\n열람할 파일명을 입력하세요\n");
+              printf(">>");
+              scanf("%s", viewF);
+              viewFile(icmp,viewF); 
+              pthread_mutex_unlock(&Mutex);
             }
             else {
-
+              printf("번호를 정확히 입력해 주세요");
             }
         }
         else if (mainchoice == 4){
-          int countsum = http_count + dns_count + ssh_count + icmp_count;
-          printf("패킷 수집을 종료합니다.\n");
-          printf("수집된 총 패킷 개수 : %d\n",countsum);
-          printf("수집된 HTTP 패킷 개수 : %d\n",http_count);
-          printf("수집된 DNS 패킷 개수 : %d\n",dns_count);
-          printf("수집된 SSH 패킷 개수 : %d\n",ssh_count);
-          printf("수집된 ICMP 패킷 개수 : %d\n",icmp_count);
           break;
         }
     }
@@ -242,7 +282,6 @@ void pathset(){ // 디렉토리 경로 및 이름 지정후 생성 함수
     }
     else{
         printf("디렉토리 생성 실패");
-        perror("Error");
     }
 
 }
@@ -267,9 +306,6 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
 
         http_count += 1;
 
-        char timeStr[20];
-        getCurrentTime(timeStr);
-
         // 파일명 구성
         char fileName[1000];
         snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", http, http_count, source_ipaddress,dest_ipaddress);
@@ -277,7 +313,7 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
         if (logfile == NULL) {
-            perror("파일 열기에 실패했습니다.");
+            printf("파일 열기에 실패했습니다.");
             return;
         }
         else{
@@ -324,7 +360,7 @@ void printHTTPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "Data Payload\n\n");
           LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
-          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n\n");
           // 파일 닫기
           fclose(logfile);
 
@@ -350,10 +386,6 @@ void printSSHInfo(const unsigned char *buffer, int size) { // 이부분이 아�
     inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
 
         ssh_count += 1;
-
-        char timeStr[20];
-        getCurrentTime(timeStr);
-
         // 파일명 구성
         char fileName[1000];
         snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", ssh, ssh_count, source_ipaddress, dest_ipaddress);
@@ -361,7 +393,7 @@ void printSSHInfo(const unsigned char *buffer, int size) { // 이부분이 아�
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
         if (logfile == NULL) {
-            perror("파일 열기에 실패했습니다.");
+            printf("파일 열기에 실패했습니다.");
             return;
         }
         else{
@@ -408,7 +440,7 @@ void printSSHInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "Data Payload\n\n");
           LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
-          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n\n");
           // 파일 닫기
           fclose(logfile);
         }
@@ -433,10 +465,6 @@ void printDNSInfo(const unsigned char *buffer, int size) { // 이부분이 아�
     inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
 
         dns_count += 1;
-
-        char timeStr[20];
-        getCurrentTime(timeStr);
-
         // 파일명 구성
         char fileName[1000];
         snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", dns, dns_count, source_ipaddress, dest_ipaddress);
@@ -444,7 +472,7 @@ void printDNSInfo(const unsigned char *buffer, int size) { // 이부분이 아�
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
         if (logfile == NULL) {
-            perror("파일 열기에 실패했습니다.");
+            printf("파일 열기에 실패했습니다.");
             return;
         }
         else{
@@ -487,7 +515,7 @@ void printDNSInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           fprintf(logfile, "Data Payload\n\n");
           LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
-          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n\n");
           // 파일 닫기
           fclose(logfile);
         }
@@ -512,10 +540,6 @@ void printICMPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
     inet_ntop(AF_INET,&(iph->saddr),source_ipaddress,INET_ADDRSTRLEN);
 
         icmp_count += 1;
-
-        char timeStr[20];
-        getCurrentTime(timeStr);
-
         // 파일명 구성
         char fileName[1000];
         snprintf(fileName, sizeof(fileName), "%s/NO.%d_%s->%s", icmp, icmp_count, source_ipaddress, dest_ipaddress);
@@ -523,7 +547,7 @@ void printICMPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
         // 파일 열기
         FILE *logfile = fopen(fileName, "a");
         if (logfile == NULL) {
-            perror("파일 열기에 실패했습니다.");
+            printf("파일 열기에 실패했습니다.");
             return;
         }
         else{
@@ -570,7 +594,7 @@ void printICMPInfo(const unsigned char *buffer, int size) { // 이부분이 아�
           LogData(buffer + header_size, size - header_size,logfile);
           fprintf(logfile, "\n");
           fprintf(logfile, "\n");
-          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+          fprintf(logfile, "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n\n");
           // 파일 닫기
           fclose(logfile);
         }
