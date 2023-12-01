@@ -324,7 +324,8 @@ void pathset(){ // 디렉토리 경로 및 이름 지정후 생성 함수
         mkdir(icmp, 0777); // icmp 디렉토리 생성
     }
     else{
-        printf("디렉토리 생성 실패");
+        printf("디렉토리 생성 실패\n\n ");
+        exit(1);
     }
 
 }
